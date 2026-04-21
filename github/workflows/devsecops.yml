@@ -1,0 +1,60 @@
+name: DevSecOps Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣ Code Checkout
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    # 2️⃣ Build (example Node.js)
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Build App
+      run: npm run build --if-present
+
+    # 3️⃣ Unit Tests
+    - name: Run Tests
+      run: npm test
+
+    # 4️⃣ 🔍 SonarQube SAST Scan
+    - name: SonarQube Scan
+      uses: sonarsource/sonarqube-scan-action@v1
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+    # 🚦 Quality Gate (FAILS PIPELINE if bad)
+    - name: SonarQube Quality Gate
+      uses: sonarsource/sonarqube-quality-gate-action@v1
+      timeout-minutes: 5
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    # 5️⃣ Dependency Scan (Snyk example)
+    - name: Dependency Scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    # 6️⃣ Docker Build
+    - name: Build Docker Image
+      run: docker build -t myapp .
+
+    # 7️⃣ Container Scan (Trivy)
+    - name: Scan Docker Image
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: myapp
